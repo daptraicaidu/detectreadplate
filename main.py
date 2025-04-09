@@ -1,33 +1,33 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
-import cv2
-import numpy as np
-from ultralytics import YOLO
-import base64
 from fastapi.responses import JSONResponse
-import os
-import shutil
-import uvicorn
+import base64, cv2, numpy as np, os, shutil
 from sklearn.cluster import KMeans
-
-
-
+from ultralytics import YOLO
 
 app = FastAPI()
 
-# Thêm middleware CORS để cho phép yêu cầu từ mọi nguồn
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Cho phép tất cả các domain (hoặc bạn có thể chỉ định một số domain cụ thể)
+    allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],  # Cho phép tất cả các phương thức HTTP
-    allow_headers=["*"],  # Cho phép tất cả các headers
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Load mô hình YOLOv8 nhận diện biển số
-model = YOLO('bestDetect.pt')
-# Load mô hình YOLOv8 đọc chữ
-models = YOLO("bestRead.pt")
+model = None
+models = None
+
+@app.on_event("startup")
+def load_models():
+    global model, models
+    model = YOLO("bestDetect.pt")
+    models = YOLO("bestRead.pt")
+
+@app.get("/")
+def root():
+    return {"status": "Server đang chạy ngon lành 😎"}
+
 
 # Danh sách nhãn ký tự
 class_names = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 
@@ -36,7 +36,7 @@ class_names = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
                'W', 'X', 'Y', 'Z']
 
 
-@app.post("/detect/")
+@app.post("/detect")
 async def detect_license_plate(file: UploadFile = File(...)):
     # Đọc ảnh từ file tải lên vào bộ nhớ
     contents = await file.read()
@@ -68,7 +68,7 @@ async def detect_license_plate(file: UploadFile = File(...)):
 
     return {"plates": plate_images_base64}
 
-@app.post("/read/")
+@app.post("/read")
 async def recognize_plate(file: UploadFile = File(...)):
     # Lưu file ảnh tạm thời
     temp_file = f"temp_{file.filename}"
